@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v5                                    --
---                 Optimized for Delta Executor | Smart TP & Multi-Select                   --
+--                                  LUXURY HACKER HUB v6                                    --
+--                 Optimized for Delta | Rapid Sweep TP & Smart Double-Click                --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -15,6 +15,10 @@ local SavedTpPosition = nil
 local IsMinimized = false
 local ActiveTab = "CHEAT"
 local MultiSelectMode = false
+
+-- Глобальные переменные для двойного клика
+local LastClickTime = 0
+local LastClickedPlayer = nil
 
 -- Конфигурация тем оформления
 local Theme = {
@@ -415,6 +419,12 @@ PosStatus.Font = Enum.Font.Gotham
 PosStatus.BackgroundTransparency = 1
 PosStatus.Parent = ControlPanel
 
+local function updatePosStatus()
+    local tpText = SavedTpPosition and "TP: Custom Set!" or "TP: Current Pos"
+    local modeText = MultiSelectMode and "MULTI" or "SINGLE"
+    PosStatus.Text = tpText .. " | MODE: " .. modeText
+end
+
 --==========================================================================================--
 --                                         ЛОГИКА                                           --
 --==========================================================================================--
@@ -445,7 +455,7 @@ local function updatePlayerList()
     
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            local isSelected = TargetPlayers[player]
+            local isSelected = TargetPlayers[player] or false
             local pBtn = Instance.new("TextButton")
             pBtn.Size = UDim2.new(1, 0, 0, 32)
             pBtn.BackgroundColor3 = isSelected and t.SelectBg or Color3.fromRGB(14, 14, 14)
@@ -470,18 +480,28 @@ local function updatePlayerList()
             
             pBtn.MouseButton1Click:Connect(function()
                 local now = tick()
-                if now - (pBtn:GetAttribute("LastClick") or 0) < 0.4 then
+                -- Проверка на двойной клик (0.4 сек)
+                if now - LastClickTime < 0.4 and LastClickedPlayer == player then
                     MultiSelectMode = not MultiSelectMode
-                    local modeText = MultiSelectMode and "MULTI" or "SINGLE"
-                    PosStatus.Text = (SavedTpPosition and "TP: Custom Set! | " or "TP: Current Pos | ") .. "MODE: " .. modeText
-                    TargetPlayers[player] = true
+                    updatePosStatus()
+                    
+                    if not MultiSelectMode then
+                        -- Возврат в сингл: очищаем всех, оставляем только текущего
+                        for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
+                        TargetPlayers[player] = true
+                    end
                 else
+                    -- Одиночный клик
                     if not MultiSelectMode then
                         for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
+                        TargetPlayers[player] = true
+                    else
+                        TargetPlayers[player] = not TargetPlayers[player]
                     end
-                    TargetPlayers[player] = not TargetPlayers[player]
                 end
-                pBtn:SetAttribute("LastClick", now)
+                
+                LastClickTime = now
+                LastClickedPlayer = player
                 updatePlayerList()
             end)
         end
@@ -498,7 +518,7 @@ local allSelected = false
 SelectAllBtn.MouseButton1Click:Connect(function()
     allSelected = not allSelected
     MultiSelectMode = true
-    PosStatus.Text = (SavedTpPosition and "TP: Custom Set! | " or "TP: Current Pos | ") .. "MODE: MULTI"
+    updatePosStatus()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then TargetPlayers[player] = allSelected end
     end
@@ -510,7 +530,7 @@ SetTpBtn.MouseButton1Click:Connect(function()
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
         SavedTpPosition = hrp.Position
-        PosStatus.Text = "TP: Custom Set! | MODE: " .. (MultiSelectMode and "MULTI" or "SINGLE")
+        updatePosStatus()
         PosStatus.TextColor3 = Theme[Theme.Current].PrimaryText
     end
 end)
@@ -550,7 +570,7 @@ ActionBtn.MouseButton1Click:Connect(function()
     local myChar = LocalPlayer.Character
     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
 
-    -- Конвейер для предмета в руках (по одному)
+    -- Конвейер для предмета (по одному, но очень быстро)
     if seatType == "ToolSeat" then
         for _, vPlayer in ipairs(targets) do
             local tool = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
@@ -558,17 +578,23 @@ ActionBtn.MouseButton1Click:Connect(function()
             tool.Parent = myChar
             task.wait(0.1)
 
-            local tHrp = vPlayer.Character and vPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local tChar = vPlayer.Character
+            local tHum = tChar and tChar:FindFirstChild("Humanoid")
+            local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
             local currentSeat = tool:FindFirstChildOfClass("Seat") or tool:FindFirstChildOfClass("VehicleSeat")
 
-            if tHrp and currentSeat and myHrp then
+            if tHum and tHrp and currentSeat and myHrp then
+                -- Скипаем, если он уже где-то сидит
+                if tHum.Sit then continue end 
+                
                 local startT = tick()
                 local angle = 0
-                while currentSeat.Occupant == nil and (tick() - startT) < 5 do
+                -- Быстрый прокрут вокруг жертвы
+                while currentSeat.Occupant == nil and (tick() - startT) < 3 do
                     RunService.Heartbeat:Wait()
                     if currentSeat.Occupant then break end
-                    angle = angle + 0.6
-                    myHrp.CFrame = CFrame.new(Vector3.new(tHrp.Position.X + math.cos(angle)*4, tHrp.Position.Y + 1, tHrp.Position.Z + math.sin(angle)*4), tHrp.Position)
+                    angle = angle + 0.8
+                    myHrp.CFrame = CFrame.new(Vector3.new(tHrp.Position.X + math.cos(angle)*3, tHrp.Position.Y + 1, tHrp.Position.Z + math.sin(angle)*3), tHrp.Position)
                 end
 
                 if currentSeat.Occupant then
@@ -582,7 +608,7 @@ ActionBtn.MouseButton1Click:Connect(function()
             end
         end
     
-    -- Конвейер для машины (группами по количеству мест)
+    -- Конвейер для машины (RAPID SWEEP - одновременный сбор)
     elseif seatType == "Vehicle" then
         local vehicle = seat.Parent
         local passSeats = {}
@@ -600,21 +626,35 @@ ActionBtn.MouseButton1Click:Connect(function()
                 if #q > 0 then table.insert(batch, table.remove(q, 1)) end
             end
 
-            for _, vPlayer in ipairs(batch) do
-                local tHrp = vPlayer.Character and vPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if tHrp and myHrp then
-                    local startT = tick()
-                    while (tick() - startT) < 4 do
-                        RunService.Heartbeat:Wait()
-                        local sat = false
-                        for _, s in ipairs(passSeats) do
-                            if s.Occupant and s.Occupant.Parent == vPlayer.Character then sat = true break end
+            local startT = tick()
+            -- Метрономная зачистка: летаем между жертвами 4 секунды
+            while (tick() - startT) < 4 do
+                local allSat = true
+                for _, vPlayer in ipairs(batch) do
+                    local tChar = vPlayer.Character
+                    local tHum = tChar and tChar:FindFirstChild("Humanoid")
+                    local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                    
+                    if tHum and tHrp then
+                        -- Проверяем, сидит ли он уже
+                        if tHum.Sit then
+                            local inOurCar = false
+                            for _, s in ipairs(passSeats) do
+                                if s.Occupant == tHum then inOurCar = true break end
+                            end
+                            -- Если сидит не у нас, игнорим, чтобы не зависать
+                            if not inOurCar then continue end
+                        else
+                            allSat = false
+                            -- Телепортируем машину прям в него на долю секунды
+                            local offset = seat.Position - myHrp.Position
+                            myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 2, 0) - offset)
+                            task.wait(0.05)
                         end
-                        if sat then break end
-                        local offset = seat.Position - myHrp.Position
-                        myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 2, 0) - offset)
                     end
                 end
+                if allSat then break end
+                RunService.Heartbeat:Wait()
             end
 
             if myHrp then
