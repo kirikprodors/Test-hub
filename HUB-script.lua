@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v6                                    --
---                 Optimized for Delta | Rapid Sweep TP & Smart Double-Click                --
+--                                  LUXURY HACKER HUB v6.1                                  --
+--                   Fixed: 4-Stud Seat Orbit, No Y-Fly, Instant Return                     --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -480,18 +480,15 @@ local function updatePlayerList()
             
             pBtn.MouseButton1Click:Connect(function()
                 local now = tick()
-                -- Проверка на двойной клик (0.4 сек)
                 if now - LastClickTime < 0.4 and LastClickedPlayer == player then
                     MultiSelectMode = not MultiSelectMode
                     updatePosStatus()
                     
                     if not MultiSelectMode then
-                        -- Возврат в сингл: очищаем всех, оставляем только текущего
                         for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
                         TargetPlayers[player] = true
                     end
                 else
-                    -- Одиночный клик
                     if not MultiSelectMode then
                         for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
                         TargetPlayers[player] = true
@@ -560,17 +557,15 @@ ActionBtn.MouseButton1Click:Connect(function()
     end
     
     local finalTpPos = SavedTpPosition
-    if not finalTpPos then
-        local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myHrp then finalTpPos = myHrp.Position end
-    end
+    local myChar = LocalPlayer.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    if not finalTpPos and myHrp then finalTpPos = myHrp.Position end
     if not finalTpPos then return end
     
     ActionBtn.Text = "KIDNAPPING..."
-    local myChar = LocalPlayer.Character
-    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
 
-    -- Конвейер для предмета (по одному, но очень быстро)
+    -- Логика для предмета (стул/инструмент)
     if seatType == "ToolSeat" then
         for _, vPlayer in ipairs(targets) do
             local tool = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
@@ -584,31 +579,39 @@ ActionBtn.MouseButton1Click:Connect(function()
             local currentSeat = tool:FindFirstChildOfClass("Seat") or tool:FindFirstChildOfClass("VehicleSeat")
 
             if tHum and tHrp and currentSeat and myHrp then
-                -- Скипаем, если он уже где-то сидит
                 if tHum.Sit then continue end 
                 
                 local startT = tick()
                 local angle = 0
-                -- Быстрый прокрут вокруг жертвы
-                while currentSeat.Occupant == nil and (tick() - startT) < 3 do
-                    RunService.Heartbeat:Wait()
+                
+                -- Крутимся на расстоянии 4 стада, пока не сядет
+                while currentSeat.Occupant == nil and (tick() - startT) < 4 do
                     if currentSeat.Occupant then break end
-                    angle = angle + 0.8
-                    myHrp.CFrame = CFrame.new(Vector3.new(tHrp.Position.X + math.cos(angle)*3, tHrp.Position.Y + 1, tHrp.Position.Z + math.sin(angle)*3), tHrp.Position)
+                    
+                    angle = angle + 0.6
+                    -- Орбита 4 стада от цели по X и Z, без изменения высоты
+                    local orbitPos = tHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
+                    local desiredSeatCFrame = CFrame.new(orbitPos, tHrp.Position)
+                    
+                    -- Смещение, чтобы именно СИДЕНЬЕ было на орбите, а не игрок
+                    local offset = currentSeat.CFrame:ToObjectSpace(myHrp.CFrame)
+                    myHrp.CFrame = desiredSeatCFrame * offset
+                    
+                    RunService.Heartbeat:Wait()
                 end
 
-                if currentSeat.Occupant then
-                    myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 3, 0))
-                    task.wait(0.2)
+                -- Как только нужный человек сел - моментальный возврат на землю
+                if currentSeat.Occupant == tHum then
+                    myHrp.CFrame = CFrame.new(finalTpPos)
+                    task.wait(0.1)
                     local weld = currentSeat:FindFirstChild("SeatWeld")
                     if weld then weld:Destroy() end
                     tool.Parent = LocalPlayer.Backpack
-                    task.wait(0.3)
                 end
             end
         end
     
-    -- Конвейер для машины (RAPID SWEEP - одновременный сбор)
+    -- Логика для машины (сбор нескольких человек)
     elseif seatType == "Vehicle" then
         local vehicle = seat.Parent
         local passSeats = {}
@@ -627,44 +630,57 @@ ActionBtn.MouseButton1Click:Connect(function()
             end
 
             local startT = tick()
-            -- Метрономная зачистка: летаем между жертвами 4 секунды
-            while (tick() - startT) < 4 do
+            local angle = 0
+            
+            while (tick() - startT) < 5 do
                 local allSat = true
+                local currentTargetHrp = nil
+                
                 for _, vPlayer in ipairs(batch) do
                     local tChar = vPlayer.Character
                     local tHum = tChar and tChar:FindFirstChild("Humanoid")
                     local tHrp = tChar and tChar:FindFirstChild("HumanoidRootPart")
                     
                     if tHum and tHrp then
-                        -- Проверяем, сидит ли он уже
+                        local inOurCar = false
                         if tHum.Sit then
-                            local inOurCar = false
                             for _, s in ipairs(passSeats) do
                                 if s.Occupant == tHum then inOurCar = true break end
                             end
-                            -- Если сидит не у нас, игнорим, чтобы не зависать
-                            if not inOurCar then continue end
-                        else
+                        end
+                        
+                        -- Находим первого, кто еще не сидит у нас
+                        if not inOurCar and not tHum.Sit then
                             allSat = false
-                            -- Телепортируем машину прям в него на долю секунды
-                            local offset = seat.Position - myHrp.Position
-                            myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 2, 0) - offset)
-                            task.wait(0.05)
+                            currentTargetHrp = tHrp
+                            break
                         end
                     end
                 end
+                
                 if allSat then break end
+                
+                -- Крутимся вокруг того, кого еще не посадили
+                if currentTargetHrp then
+                    angle = angle + 0.6
+                    local orbitPos = currentTargetHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
+                    local desiredSeatCFrame = CFrame.new(orbitPos, currentTargetHrp.Position)
+                    
+                    local offset = seat.CFrame:ToObjectSpace(myHrp.CFrame)
+                    myHrp.CFrame = desiredSeatCFrame * offset
+                end
+                
                 RunService.Heartbeat:Wait()
             end
 
+            -- Возврат всей машины на изначальную позицию (без прыжков вверх)
             if myHrp then
-                myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 3, 0))
-                task.wait(0.3)
+                myHrp.CFrame = CFrame.new(finalTpPos)
+                task.wait(0.2)
                 for _, s in ipairs(passSeats) do
                     local w = s:FindFirstChild("SeatWeld")
                     if w then w:Destroy() end
                 end
-                task.wait(0.3)
             end
         end
     end
