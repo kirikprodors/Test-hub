@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v4                                    --
---                 Optimized for Delta Executor | UI Style: Themes & Scaling                --
+--                                  LUXURY HACKER HUB v5                                    --
+--                 Optimized for Delta Executor | Smart TP & Multi-Select                   --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -14,13 +14,14 @@ local TargetPlayers = {}
 local SavedTpPosition = nil
 local IsMinimized = false
 local ActiveTab = "CHEAT"
+local MultiSelectMode = false
 
 -- Конфигурация тем оформления
 local Theme = {
     Current = "Luxury",
     Luxury = {
-        Seq = ColorSequence.new(Color3.fromRGB(255, 140, 0), Color3.fromRGB(212, 175, 55)), -- Оранжево-Золотой
-        MainBg = Color3.fromRGB(5, 5, 5), -- #050505
+        Seq = ColorSequence.new(Color3.fromRGB(255, 140, 0), Color3.fromRGB(212, 175, 55)),
+        MainBg = Color3.fromRGB(5, 5, 5),
         SideBg = Color3.fromRGB(10, 10, 10),
         ListBg = Color3.fromRGB(8, 8, 8),
         PrimaryText = Color3.fromRGB(255, 140, 0),
@@ -28,8 +29,8 @@ local Theme = {
         SelectBg = Color3.fromRGB(25, 12, 5)
     },
     Hacker = {
-        Seq = ColorSequence.new(Color3.fromRGB(0, 255, 50), Color3.fromRGB(0, 100, 10)), -- Неоново-Зеленый матричный
-        MainBg = Color3.fromRGB(0, 0, 0), -- Чистый черный
+        Seq = ColorSequence.new(Color3.fromRGB(0, 255, 50), Color3.fromRGB(0, 100, 10)),
+        MainBg = Color3.fromRGB(0, 0, 0),
         SideBg = Color3.fromRGB(4, 12, 4),
         ListBg = Color3.fromRGB(2, 6, 2),
         PrimaryText = Color3.fromRGB(0, 255, 50),
@@ -38,11 +39,9 @@ local Theme = {
     }
 }
 
--- Очистка старых UI перед перезапуском
 local oldUi = game:GetService("CoreGui"):FindFirstChild("HackerHub") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("HackerHub")
 if oldUi then oldUi:Destroy() end
 
--- Создание ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "HackerHub"
 ScreenGui.ResetOnSpawn = false
@@ -95,7 +94,6 @@ end
 --==========================================================================================--
 --                                      ГЛАВНЫЕ ФРЕЙМЫ                                      --
 --==========================================================================================--
--- Центрируем окно через AnchorPoint для корректного масштабирования во все стороны
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -106,12 +104,10 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 createCorner(MainFrame, 8)
 
--- Наш секретный чит-объект для изменения размеров всего хаба сразу
 local MainScale = Instance.new("UIScale")
 MainScale.Scale = 1
 MainScale.Parent = MainFrame
 
--- Верхняя светящаяся линия
 local TopLine = Instance.new("Frame")
 TopLine.Size = UDim2.new(1, 0, 0, 4)
 TopLine.BorderSizePixel = 0
@@ -119,7 +115,6 @@ TopLine.Parent = MainFrame
 applyThemeGradient(TopLine)
 createCorner(TopLine, 4)
 
--- Топбар
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 35)
 TopBar.Position = UDim2.new(0, 0, 0, 4)
@@ -139,7 +134,6 @@ Title.BackgroundTransparency = 1
 Title.Parent = TopBar
 applyThemeGradient(Title)
 
--- Кнопки управления окном
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 35, 0, 30)
 CloseBtn.Position = UDim2.new(1, -40, 0, 2)
@@ -161,7 +155,6 @@ MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.BackgroundTransparency = 1
 MinimizeBtn.Parent = TopBar
 
--- Левый сайдбар для вкладок
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 110, 1, -39)
 Sidebar.Position = UDim2.new(0, 0, 0, 39)
@@ -173,14 +166,12 @@ local SidebarUIList = Instance.new("UIListLayout")
 SidebarUIList.Padding = UDim.new(0, 4)
 SidebarUIList.Parent = Sidebar
 
--- Контейнер содержимого
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Size = UDim2.new(1, -120, 1, -44)
 ContentFrame.Position = UDim2.new(0, 120, 0, 41)
 ContentFrame.BackgroundTransparency = 1
 ContentFrame.Parent = MainFrame
 
--- Менеджер вкладок
 local Tabs = {}
 local function createTab(name)
     local TabBtn = Instance.new("TextButton")
@@ -230,7 +221,6 @@ end
 local CheatTab = createTab("CHEAT")
 local SettingsTab = createTab("SETTINGS")
 
--- Сворачивание
 MinimizeBtn.MouseButton1Click:Connect(function()
     IsMinimized = not IsMinimized
     if IsMinimized then
@@ -246,32 +236,17 @@ MinimizeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
---==========================================================================================--
---                                   ДИНАМИЧЕСКАЯ СМЕНА ТЕМЫ                                --
---==========================================================================================--
 local function switchTheme(themeName)
     Theme.Current = themeName
     local t = Theme[themeName]
-    
-    -- Обновляем абсолютно все градиенты в хабе
     for _, obj in ipairs(ScreenGui:GetDescendants()) do
-        if obj:IsA("UIGradient") and obj.Name == "LuxuryGradient" then
-            obj.Color = t.Seq
-        end
+        if obj:IsA("UIGradient") and obj.Name == "LuxuryGradient" then obj.Color = t.Seq end
     end
-    
-    -- Меняем фоны
     MainFrame.BackgroundColor3 = t.MainBg
     Sidebar.BackgroundColor3 = t.SideBg
-    
-    -- Обновляем вкладки
     for tName, tData in pairs(Tabs) do
-        if tName ~= ActiveTab then
-            tData.Btn.TextColor3 = t.SecondaryText
-        end
+        if tName ~= ActiveTab then tData.Btn.TextColor3 = t.SecondaryText end
     end
-    
-    -- Перерисовываем список игроков под новую тему
     if CheatTab.Visible then
         local pList = CheatTab:FindFirstChildOfClass("ScrollingFrame")
         if pList then pList.BackgroundColor3 = t.ListBg end
@@ -281,7 +256,6 @@ local function switchTheme(themeName)
             if status then status.TextColor3 = t.SecondaryText end
         end
     end
-    
     local updatePlayerList = _G.UpdatePlayerListFunc
     if updatePlayerList then updatePlayerList() end
 end
@@ -297,7 +271,7 @@ local function createSettingInfo(text)
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(1, -10, 0, 20)
     lbl.Text = " > " .. text
-    lbl.TextColor3 = Color3.fromRGB(14, 114, 14) -- Оставим легкий хакерский лог системным
+    lbl.TextColor3 = Color3.fromRGB(14, 114, 14)
     lbl.TextSize = 11
     lbl.Font = Enum.Font.Code
     lbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -308,14 +282,12 @@ end
 createSettingInfo("HWID STATUS: STABLE ACTIVE")
 createSettingInfo("RENDER MODE: RUNSERVICE OPTIMIZED")
 
--- Разделитель для красоты
 local Div = Instance.new("Frame")
 Div.Size = UDim2.new(1, -10, 0, 1)
 Div.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Div.BorderSizePixel = 0
 Div.Parent = SettingsTab
 
--- ПОЛЕ ИЗМЕНЕНИЯ РАЗМЕРА (SCALING)
 local ScaleLabel = Instance.new("TextLabel")
 ScaleLabel.Size = UDim2.new(1, -10, 0, 18)
 ScaleLabel.Text = "HUB SCALE (1.5 = smaller, 0.75 = bigger):"
@@ -336,18 +308,12 @@ ScaleInput.TextSize = 12
 createCorner(ScaleInput, 4)
 ScaleInput.Parent = SettingsTab
 
-ScaleInput.FocusLost:Connect(function(enterPressed)
+ScaleInput.FocusLost:Connect(function()
     local num = tonumber(ScaleInput.Text)
-    if num and num > 0 then
-        -- Твоя логика: вводишь 1.5 -> уменьшает в 1.5 раза (Scale = 1/1.5 = 0.66)
-        -- вводишь 0.75 -> увеличивает (Scale = 1/0.75 = 1.33)
-        MainScale.Scale = 1 / num
-    else
-        ScaleInput.Text = tostring(1 / MainScale.Scale)
-    end
+    if num and num > 0 then MainScale.Scale = 1 / num
+    else ScaleInput.Text = tostring(1 / MainScale.Scale) end
 end)
 
--- ПАНЕЛЬ СМЕНЫ ТЕМ (КНОПКИ)
 local ThemeLabel = Instance.new("TextLabel")
 ThemeLabel.Size = UDim2.new(1, -10, 0, 18)
 ThemeLabel.Text = "SELECT INTERFACE THEME:"
@@ -362,7 +328,6 @@ local ThemeContainer = Instance.new("Frame")
 ThemeContainer.Size = UDim2.new(1, -10, 0, 30)
 ThemeContainer.BackgroundTransparency = 1
 ThemeContainer.Parent = SettingsTab
-
 local ThemeLayout = Instance.new("UIListLayout")
 ThemeLayout.FillDirection = Enum.FillDirection.Horizontal
 ThemeLayout.Padding = UDim.new(0, 8)
@@ -393,7 +358,6 @@ HackBtn.MouseButton1Click:Connect(function() switchTheme("Hacker") end)
 --==========================================================================================--
 --                                   ВКЛАДКА CHEAT (UI ПАНЕЛИ)                              --
 --==========================================================================================--
--- Список игроков
 local PlayerListFrame = Instance.new("ScrollingFrame")
 PlayerListFrame.Size = UDim2.new(0, 165, 1, 0)
 PlayerListFrame.BackgroundColor3 = Theme[Theme.Current].ListBg
@@ -407,7 +371,6 @@ local ListLayout = Instance.new("UIListLayout")
 ListLayout.Padding = UDim.new(0, 4)
 ListLayout.Parent = PlayerListFrame
 
--- Панель управления справа
 local ControlPanel = Instance.new("Frame")
 ControlPanel.Name = "ControlPanel"
 ControlPanel.Size = UDim2.new(1, -175, 1, 0)
@@ -419,7 +382,6 @@ local ControlLayout = Instance.new("UIListLayout")
 ControlLayout.Padding = UDim.new(0, 6)
 ControlLayout.Parent = ControlPanel
 
--- Кнопки управления читом
 local function createHackButton(text, hasGradient)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -430,14 +392,12 @@ local function createHackButton(text, hasGradient)
     btn.BorderSizePixel = 0
     btn.Parent = ControlPanel
     createCorner(btn, 4)
-    
     if hasGradient then
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        local g = applyThemeGradient(btn)
+        applyThemeGradient(btn)
     else
         btn.TextColor3 = Color3.fromRGB(180, 180, 180)
     end
-    
     return btn
 end
 
@@ -448,9 +408,9 @@ local ActionBtn = createHackButton("TP THESE PEOPLE", true)
 local PosStatus = Instance.new("TextLabel")
 PosStatus.Name = "PosStatus"
 PosStatus.Size = UDim2.new(1, 0, 0, 18)
-PosStatus.Text = "TP: Current Pos"
+PosStatus.Text = "TP: Current Pos | MODE: SINGLE"
 PosStatus.TextColor3 = Theme[Theme.Current].SecondaryText
-PosStatus.TextSize = 11
+PosStatus.TextSize = 10
 PosStatus.Font = Enum.Font.Gotham
 PosStatus.BackgroundTransparency = 1
 PosStatus.Parent = ControlPanel
@@ -509,13 +469,20 @@ local function updatePlayerList()
             chk.Parent = pBtn
             
             pBtn.MouseButton1Click:Connect(function()
-                TargetPlayers[player] = not TargetPlayers[player]
-                local nowSelected = TargetPlayers[player]
-                local currentT = Theme[Theme.Current]
-                pBtn.BackgroundColor3 = nowSelected and currentT.SelectBg or Color3.fromRGB(14, 14, 14)
-                pBtn.TextColor3 = nowSelected and currentT.PrimaryText or currentT.SecondaryText
-                chk.Text = nowSelected and "✓" or "○"
-                chk.TextColor3 = nowSelected and currentT.PrimaryText or Color3.fromRGB(70, 70, 70)
+                local now = tick()
+                if now - (pBtn:GetAttribute("LastClick") or 0) < 0.4 then
+                    MultiSelectMode = not MultiSelectMode
+                    local modeText = MultiSelectMode and "MULTI" or "SINGLE"
+                    PosStatus.Text = (SavedTpPosition and "TP: Custom Set! | " or "TP: Current Pos | ") .. "MODE: " .. modeText
+                    TargetPlayers[player] = true
+                else
+                    if not MultiSelectMode then
+                        for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
+                    end
+                    TargetPlayers[player] = not TargetPlayers[player]
+                end
+                pBtn:SetAttribute("LastClick", now)
+                updatePlayerList()
             end)
         end
     end
@@ -530,6 +497,8 @@ updatePlayerList()
 local allSelected = false
 SelectAllBtn.MouseButton1Click:Connect(function()
     allSelected = not allSelected
+    MultiSelectMode = true
+    PosStatus.Text = (SavedTpPosition and "TP: Custom Set! | " or "TP: Current Pos | ") .. "MODE: MULTI"
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then TargetPlayers[player] = allSelected end
     end
@@ -538,11 +507,10 @@ SelectAllBtn.MouseButton1Click:Connect(function()
 end)
 
 SetTpBtn.MouseButton1Click:Connect(function()
-    local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if hrp then
         SavedTpPosition = hrp.Position
-        PosStatus.Text = "TP: Custom Set!"
+        PosStatus.Text = "TP: Custom Set! | MODE: " .. (MultiSelectMode and "MULTI" or "SINGLE")
         PosStatus.TextColor3 = Theme[Theme.Current].PrimaryText
     end
 end)
@@ -571,12 +539,6 @@ ActionBtn.MouseButton1Click:Connect(function()
         return
     end
     
-    if seatType == "ToolSeat" and #targets > 1 then
-        ActionBtn.Text = "CHOOSE 1 PERSON!"
-        task.wait(1.5) ActionBtn.Text = "TP THESE PEOPLE"
-        return
-    end
-    
     local finalTpPos = SavedTpPosition
     if not finalTpPos then
         local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -585,47 +547,82 @@ ActionBtn.MouseButton1Click:Connect(function()
     if not finalTpPos then return end
     
     ActionBtn.Text = "KIDNAPPING..."
-    
-    for _, vPlayer in ipairs(targets) do
-        local targetChar = vPlayer.Character
-        local targetHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-        local myChar = LocalPlayer.Character
-        local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        
-        if targetHrp and myHrp then
-            if seatType == "Vehicle" then
-                local startTime = tick()
-                while seat.Occupant == nil and (tick() - startTime) < 5 do
-                    RunService.Heartbeat:Wait()
-                    local offset = seat.Position - myHrp.Position
-                    myHrp.CFrame = CFrame.new(targetHrp.Position + Vector3.new(0, 2, 0) - offset)
-                end
-            else
-                local startTime = tick()
+    local myChar = LocalPlayer.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    -- Конвейер для предмета в руках (по одному)
+    if seatType == "ToolSeat" then
+        for _, vPlayer in ipairs(targets) do
+            local tool = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+            if not tool then break end
+            tool.Parent = myChar
+            task.wait(0.1)
+
+            local tHrp = vPlayer.Character and vPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local currentSeat = tool:FindFirstChildOfClass("Seat") or tool:FindFirstChildOfClass("VehicleSeat")
+
+            if tHrp and currentSeat and myHrp then
+                local startT = tick()
                 local angle = 0
-                local radius = 4
-                while seat.Occupant == nil and (tick() - startTime) < 6 do
+                while currentSeat.Occupant == nil and (tick() - startT) < 5 do
                     RunService.Heartbeat:Wait()
+                    if currentSeat.Occupant then break end
                     angle = angle + 0.6
-                    local posX = targetHrp.Position.X + math.cos(angle) * radius
-                    local posZ = targetHrp.Position.Z + math.sin(angle) * radius
-                    myHrp.CFrame = CFrame.new(Vector3.new(posX, targetHrp.Position.Y + 1, posZ), targetHrp.Position)
+                    myHrp.CFrame = CFrame.new(Vector3.new(tHrp.Position.X + math.cos(angle)*4, tHrp.Position.Y + 1, tHrp.Position.Z + math.sin(angle)*4), tHrp.Position)
+                end
+
+                if currentSeat.Occupant then
+                    myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 3, 0))
+                    task.wait(0.2)
+                    local weld = currentSeat:FindFirstChild("SeatWeld")
+                    if weld then weld:Destroy() end
+                    tool.Parent = LocalPlayer.Backpack
+                    task.wait(0.3)
                 end
             end
-            
-            if seat.Occupant then
-                task.wait(0.1)
+        end
+    
+    -- Конвейер для машины (группами по количеству мест)
+    elseif seatType == "Vehicle" then
+        local vehicle = seat.Parent
+        local passSeats = {}
+        for _, v in ipairs(vehicle:GetDescendants()) do
+            if (v:IsA("Seat") or v:IsA("VehicleSeat")) and v ~= seat then
+                table.insert(passSeats, v)
+            end
+        end
+        if #passSeats == 0 then table.insert(passSeats, seat) end
+
+        local q = {unpack(targets)}
+        while #q > 0 do
+            local batch = {}
+            for i = 1, #passSeats do
+                if #q > 0 then table.insert(batch, table.remove(q, 1)) end
+            end
+
+            for _, vPlayer in ipairs(batch) do
+                local tHrp = vPlayer.Character and vPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if tHrp and myHrp then
+                    local startT = tick()
+                    while (tick() - startT) < 4 do
+                        RunService.Heartbeat:Wait()
+                        local sat = false
+                        for _, s in ipairs(passSeats) do
+                            if s.Occupant and s.Occupant.Parent == vPlayer.Character then sat = true break end
+                        end
+                        if sat then break end
+                        local offset = seat.Position - myHrp.Position
+                        myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 2, 0) - offset)
+                    end
+                end
+            end
+
+            if myHrp then
                 myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 3, 0))
-                task.wait(0.2)
-                
-                local tool = myChar:FindFirstChildOfClass("Tool")
-                if tool then
-                    tool.Parent = LocalPlayer.Backpack
-                elseif seatType == "Vehicle" then
-                    local oldParent = seat.Parent
-                    seat.Parent = nil
-                    task.wait(0.1)
-                    seat.Parent = oldParent
+                task.wait(0.3)
+                for _, s in ipairs(passSeats) do
+                    local w = s:FindFirstChild("SeatWeld")
+                    if w then w:Destroy() end
                 end
                 task.wait(0.3)
             end
@@ -633,8 +630,4 @@ ActionBtn.MouseButton1Click:Connect(function()
     end
     
     ActionBtn.Text = "TP THESE PEOPLE"
-    for k in pairs(TargetPlayers) do TargetPlayers[k] = false end
-    allSelected = false
-    SelectAllBtn.Text = "SELECT ALL"
-    updatePlayerList()
 end)
