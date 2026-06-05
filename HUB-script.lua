@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v6.2                                  --
---                Fixed: Anti-Cheat Rollback Bypass & Invisible Sky Desync                  --
+--                                  LUXURY HACKER HUB v6.3                                  --
+--                 Fixed: Gravity Fall, Failed Welds & Return Teleportation                 --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -535,6 +535,18 @@ end)
 --==========================================================================================--
 --                                   БЛОК ТЕЛЕПОРТАЦИИ                                      --
 --==========================================================================================--
+
+local function resetVelocity(hrp, seat)
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
+    if seat then
+        seat.AssemblyLinearVelocity = Vector3.zero
+        seat.AssemblyAngularVelocity = Vector3.zero
+    end
+end
+
 ActionBtn.MouseButton1Click:Connect(function()
     local seat, seatType = getSeatContext()
     if not seat then
@@ -550,22 +562,25 @@ ActionBtn.MouseButton1Click:Connect(function()
         end
     end
     
-    if #targets == 0 then
-        ActionBtn.Text = "NO TARGETS!"
-        task.wait(1) ActionBtn.Text = "TP THESE PEOPLE"
-        return
-    end
+    if #targets == 0 then return end
     
-    local finalTpPos = SavedTpPosition
     local myChar = LocalPlayer.Character
     local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
     
-    if not finalTpPos and myHrp then finalTpPos = myHrp.Position end
-    if not finalTpPos then return end
+    -- СОХРАНЯЕМ ИСХОДНУЮ ПОЗИЦИЮ (Гарантированный возврат)
+    local originalCFrame = myHrp.CFrame
+    local finalTpPos = SavedTpPosition or originalCFrame.Position
     
     ActionBtn.Text = "KIDNAPPING..."
+    
+    -- НЕБЕСНАЯ ПЛАТФОРМА (чтобы не падать во время инвиза)
+    local skyBase = Instance.new("Part")
+    skyBase.Size = Vector3.new(300, 5, 300)
+    skyBase.Anchored = true
+    skyBase.Transparency = 1 -- Невидимая
+    skyBase.Parent = workspace
 
-    -- Логика для предмета (стул/инструмент)
     if seatType == "ToolSeat" then
         for _, vPlayer in ipairs(targets) do
             local tool = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
@@ -581,35 +596,41 @@ ActionBtn.MouseButton1Click:Connect(function()
             if tHum and tHrp and currentSeat and myHrp then
                 if tHum.Sit then continue end 
                 
+                skyBase.Position = tHrp.Position + Vector3.new(0, 1500, 0)
                 local startT = tick()
                 local angle = 0
                 
-                -- Sky Desync Орбита
+                -- Режим невидимки-фликера
                 while currentSeat.Occupant == nil and (tick() - startT) < 4 do
                     if currentSeat.Occupant then break end
                     
-                    angle = angle + 0.6
-                    local orbitPos = tHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
+                    angle = angle + 0.8
+                    local orbitPos = tHrp.Position + Vector3.new(math.cos(angle)*3, 0, math.sin(angle)*3)
                     local desiredSeatCFrame = CFrame.new(orbitPos, tHrp.Position)
                     local offset = currentSeat.CFrame:ToObjectSpace(myHrp.CFrame)
                     
-                    -- ШАГ 1: Появляемся на 1 кадр перед игроком (расстояние 4 стада, центр сиденья в лицо)
+                    -- Телепорт к цели, обнуление инерции
                     myHrp.CFrame = desiredSeatCFrame * offset
-                    RunService.Heartbeat:Wait()
+                    resetVelocity(myHrp, currentSeat)
+                    task.wait(0.05) -- Пауза чтобы сервер понял посадку
                     
-                    -- ШАГ 2: Моментально прячемся высоко в небесах (невидимка для всех)
-                    myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 5000, 0))
-                    task.wait(0.03)
+                    -- Если еще не сел - прячемся на платформу
+                    if not currentSeat.Occupant then
+                        myHrp.CFrame = CFrame.new(skyBase.Position + Vector3.new(0, 5, 0))
+                        resetVelocity(myHrp, currentSeat)
+                        task.wait(0.1)
+                    end
                 end
 
-                -- Если сел — обходим античит Брукхейвена
                 if currentSeat.Occupant == tHum then
-                    -- Держим машину/стул в небе 0.4 сек, чтобы сервер закрепил его
-                    myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 5000, 0))
-                    task.wait(0.4)
+                    -- Ждем на платформе, чтобы сервер закрепил Weld (Обход античита)
+                    myHrp.CFrame = CFrame.new(skyBase.Position + Vector3.new(0, 5, 0))
+                    resetVelocity(myHrp, currentSeat)
+                    task.wait(0.6) 
                     
-                    -- Переносим на базу
+                    -- Переносим на базу и сбрасываем
                     myHrp.CFrame = CFrame.new(finalTpPos)
+                    resetVelocity(myHrp, currentSeat)
                     task.wait(0.1)
                     local weld = currentSeat:FindFirstChild("SeatWeld")
                     if weld then weld:Destroy() end
@@ -617,8 +638,7 @@ ActionBtn.MouseButton1Click:Connect(function()
                 end
             end
         end
-    
-    -- Логика для машины (сбор нескольких человек)
+        
     elseif seatType == "Vehicle" then
         local vehicle = seat.Parent
         local passSeats = {}
@@ -634,6 +654,12 @@ ActionBtn.MouseButton1Click:Connect(function()
             local batch = {}
             for i = 1, #passSeats do
                 if #q > 0 then table.insert(batch, table.remove(q, 1)) end
+            end
+
+            local firstTarget = batch[1]
+            local targetHrpForPlatform = firstTarget.Character and firstTarget.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrpForPlatform then
+                skyBase.Position = targetHrpForPlatform.Position + Vector3.new(0, 1500, 0)
             end
 
             local startT = tick()
@@ -655,7 +681,6 @@ ActionBtn.MouseButton1Click:Connect(function()
                                 if s.Occupant == tHum then inOurCar = true break end
                             end
                         end
-                        
                         if not inOurCar and not tHum.Sit then
                             allSat = false
                             currentTargetHrp = tHrp
@@ -666,31 +691,29 @@ ActionBtn.MouseButton1Click:Connect(function()
                 
                 if allSat then break end
                 
-                -- Sky Desync Орбита для машины
                 if currentTargetHrp then
-                    angle = angle + 0.6
+                    angle = angle + 0.8
                     local orbitPos = currentTargetHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
                     local desiredSeatCFrame = CFrame.new(orbitPos, currentTargetHrp.Position)
                     local offset = seat.CFrame:ToObjectSpace(myHrp.CFrame)
                     
-                    -- Показываем машину на кадр
                     myHrp.CFrame = desiredSeatCFrame * offset
-                    RunService.Heartbeat:Wait()
+                    resetVelocity(myHrp, seat)
+                    task.wait(0.05)
                     
-                    -- Прячем машину в космос
-                    myHrp.CFrame = CFrame.new(currentTargetHrp.Position + Vector3.new(0, 5000, 0))
-                    task.wait(0.03)
+                    myHrp.CFrame = CFrame.new(skyBase.Position + Vector3.new(0, 5, 0))
+                    resetVelocity(myHrp, seat)
+                    task.wait(0.1)
                 end
             end
 
-            -- Выгрузка машины (Анти-Бэк телепорт обход)
             if myHrp then
-                -- Фиксируем сидение на сервере (задержка в небе)
-                myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 5000, 0))
-                task.wait(0.4)
+                myHrp.CFrame = CFrame.new(skyBase.Position + Vector3.new(0, 5, 0))
+                resetVelocity(myHrp, seat)
+                task.wait(0.6)
                 
-                -- Безопасно приземляем
                 myHrp.CFrame = CFrame.new(finalTpPos)
+                resetVelocity(myHrp, seat)
                 task.wait(0.2)
                 for _, s in ipairs(passSeats) do
                     local w = s:FindFirstChild("SeatWeld")
@@ -698,6 +721,15 @@ ActionBtn.MouseButton1Click:Connect(function()
                 end
             end
         end
+    end
+    
+    -- УДАЛЯЕМ ПЛАТФОРМУ И ГАРАНТИРОВАННО ВОЗВРАЩАЕМ ИГРОКА
+    skyBase:Destroy()
+    
+    -- Если кастомная позиция не была задана, жестко возвращаем на изначальную точку
+    if not SavedTpPosition then
+        myHrp.CFrame = originalCFrame
+        resetVelocity(myHrp, seat)
     end
     
     ActionBtn.Text = "TP THESE PEOPLE"
