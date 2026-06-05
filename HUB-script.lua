@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v6.1                                  --
---                   Fixed: 4-Stud Seat Orbit, No Y-Fly, Instant Return                     --
+--                                  LUXURY HACKER HUB v6.2                                  --
+--                Fixed: Anti-Cheat Rollback Bypass & Invisible Sky Desync                  --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -584,24 +584,31 @@ ActionBtn.MouseButton1Click:Connect(function()
                 local startT = tick()
                 local angle = 0
                 
-                -- Крутимся на расстоянии 4 стада, пока не сядет
+                -- Sky Desync Орбита
                 while currentSeat.Occupant == nil and (tick() - startT) < 4 do
                     if currentSeat.Occupant then break end
                     
                     angle = angle + 0.6
-                    -- Орбита 4 стада от цели по X и Z, без изменения высоты
                     local orbitPos = tHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
                     local desiredSeatCFrame = CFrame.new(orbitPos, tHrp.Position)
-                    
-                    -- Смещение, чтобы именно СИДЕНЬЕ было на орбите, а не игрок
                     local offset = currentSeat.CFrame:ToObjectSpace(myHrp.CFrame)
-                    myHrp.CFrame = desiredSeatCFrame * offset
                     
+                    -- ШАГ 1: Появляемся на 1 кадр перед игроком (расстояние 4 стада, центр сиденья в лицо)
+                    myHrp.CFrame = desiredSeatCFrame * offset
                     RunService.Heartbeat:Wait()
+                    
+                    -- ШАГ 2: Моментально прячемся высоко в небесах (невидимка для всех)
+                    myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 5000, 0))
+                    task.wait(0.03)
                 end
 
-                -- Как только нужный человек сел - моментальный возврат на землю
+                -- Если сел — обходим античит Брукхейвена
                 if currentSeat.Occupant == tHum then
+                    -- Держим машину/стул в небе 0.4 сек, чтобы сервер закрепил его
+                    myHrp.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 5000, 0))
+                    task.wait(0.4)
+                    
+                    -- Переносим на базу
                     myHrp.CFrame = CFrame.new(finalTpPos)
                     task.wait(0.1)
                     local weld = currentSeat:FindFirstChild("SeatWeld")
@@ -649,7 +656,6 @@ ActionBtn.MouseButton1Click:Connect(function()
                             end
                         end
                         
-                        -- Находим первого, кто еще не сидит у нас
                         if not inOurCar and not tHum.Sit then
                             allSat = false
                             currentTargetHrp = tHrp
@@ -660,21 +666,30 @@ ActionBtn.MouseButton1Click:Connect(function()
                 
                 if allSat then break end
                 
-                -- Крутимся вокруг того, кого еще не посадили
+                -- Sky Desync Орбита для машины
                 if currentTargetHrp then
                     angle = angle + 0.6
                     local orbitPos = currentTargetHrp.Position + Vector3.new(math.cos(angle)*4, 0, math.sin(angle)*4)
                     local desiredSeatCFrame = CFrame.new(orbitPos, currentTargetHrp.Position)
-                    
                     local offset = seat.CFrame:ToObjectSpace(myHrp.CFrame)
+                    
+                    -- Показываем машину на кадр
                     myHrp.CFrame = desiredSeatCFrame * offset
+                    RunService.Heartbeat:Wait()
+                    
+                    -- Прячем машину в космос
+                    myHrp.CFrame = CFrame.new(currentTargetHrp.Position + Vector3.new(0, 5000, 0))
+                    task.wait(0.03)
                 end
-                
-                RunService.Heartbeat:Wait()
             end
 
-            -- Возврат всей машины на изначальную позицию (без прыжков вверх)
+            -- Выгрузка машины (Анти-Бэк телепорт обход)
             if myHrp then
+                -- Фиксируем сидение на сервере (задержка в небе)
+                myHrp.CFrame = CFrame.new(finalTpPos + Vector3.new(0, 5000, 0))
+                task.wait(0.4)
+                
+                -- Безопасно приземляем
                 myHrp.CFrame = CFrame.new(finalTpPos)
                 task.wait(0.2)
                 for _, s in ipairs(passSeats) do
