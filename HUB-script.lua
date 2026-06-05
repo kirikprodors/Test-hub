@@ -1,5 +1,5 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v2                                    --
+--                                  LUXURY HACKER HUB v3                                    --
 --                 Optimized for Delta Executor | UI Style: Dark & Gold/Orange             --
 --==========================================================================================--
 
@@ -36,7 +36,7 @@ local function createCorner(parent, radius)
     return corner
 end
 
--- Тот самый роскошный Luxury-градиент (Оранжево-Золотой)
+-- Фирменный Luxury-градиент
 local function applyLuxuryGradient(parent)
     local gradient = Instance.new("UIGradient")
     gradient.Color = ColorSequence.new({
@@ -75,7 +75,7 @@ end
 --==========================================================================================--
 --                                      ГЛАВНЫЕ ФРЕЙМЫ                                      --
 --==========================================================================================--
--- Сделал окно компактным (было 520x340, стало 440x260) — идеально для экрана телефона
+-- Компактное и удобное окно для телефона (440x260)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 440, 0, 260)
@@ -85,7 +85,7 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 createCorner(MainFrame, 8)
 
--- Верхняя светящаяся линия с градиентом
+-- Верхняя светящаяся линия
 local TopLine = Instance.new("Frame")
 TopLine.Size = UDim2.new(1, 0, 0, 4)
 TopLine.BorderSizePixel = 0
@@ -93,7 +93,7 @@ TopLine.Parent = MainFrame
 applyLuxuryGradient(TopLine)
 createCorner(TopLine, 4)
 
--- Топбар для перетаскивания и сворачивания
+-- Топбар
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 35)
 TopBar.Position = UDim2.new(0, 0, 0, 4)
@@ -105,20 +105,21 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(0, 250, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.Text = "SYSTEM OVERRIDE // LUX HUB"
-Title.TextSize = 16 -- Увеличен шрифт
-Title.Font = Enum.Font.GothamBold -- Хакерский, но современный и жирный шрифт
+Title.TextSize = 15 
+Title.Font = Enum.Font.GothamBold 
+Title.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый, чтобы лег градиент
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
-Title.Parent = Title
-applyLuxuryGradient(Title) -- Название теперь горит золотом
+Title.Parent = TopBar
+applyLuxuryGradient(Title)
 
--- Кнопки управления окном (крупные для пальцев)
+-- Кнопки управления
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 35, 0, 30)
 CloseBtn.Position = UDim2.new(1, -40, 0, 2)
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(200, 50, 50)
-CloseBtn.TextSize = 18
+CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.BackgroundTransparency = 1
 CloseBtn.Parent = TopBar
@@ -129,12 +130,12 @@ MinimizeBtn.Size = UDim2.new(0, 35, 0, 30)
 MinimizeBtn.Position = UDim2.new(1, -75, 0, 2)
 MinimizeBtn.Text = "—"
 MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-MinimizeBtn.TextSize = 16
+MinimizeBtn.TextSize = 14
 MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.BackgroundTransparency = 1
 MinimizeBtn.Parent = TopBar
 
--- Левая панель вкладок
+-- Левый сайдбар для вкладок
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 110, 1, -39)
 Sidebar.Position = UDim2.new(0, 0, 0, 39)
@@ -146,20 +147,20 @@ local SidebarUIList = Instance.new("UIListLayout")
 SidebarUIList.Padding = UDim.new(0, 4)
 SidebarUIList.Parent = Sidebar
 
--- Контейнер содержимого вкладок
+-- Контейнер содержимого
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Size = UDim2.new(1, -120, 1, -44)
 ContentFrame.Position = UDim2.new(0, 120, 0, 41)
 ContentFrame.BackgroundTransparency = 1
 ContentFrame.Parent = MainFrame
 
--- Функция создания красивых вкладок
+-- Менеджер вкладок
 local Tabs = {}
 local function createTab(name)
     local TabBtn = Instance.new("TextButton")
     TabBtn.Size = UDim2.new(1, 0, 0, 40)
     TabBtn.Text = "  " .. name
-    TabBtn.TextSize = 14
+    TabBtn.TextSize = 13
     TabBtn.Font = Enum.Font.GothamBold
     TabBtn.TextXAlignment = Enum.TextXAlignment.Left
     TabBtn.BackgroundTransparency = 1
@@ -172,7 +173,9 @@ local function createTab(name)
     TabContent.Parent = ContentFrame
     
     if name == "CHEAT" then
-        applyLuxuryGradient(TabBtn)
+        TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        local g = applyLuxuryGradient(TabBtn)
+        g.Name = "TabGrad"
     else
         TabBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
     end
@@ -182,12 +185,13 @@ local function createTab(name)
     TabBtn.MouseButton1Click:Connect(function()
         for tName, tData in pairs(Tabs) do
             tData.Content.Visible = (tName == name)
-            local grad = tData.Btn:FindFirstChildOfClass("UIGradient")
-            if grad then grad:Destroy() end
+            local oldGrad = tData.Btn:FindFirstChild("TabGrad")
+            if oldGrad then oldGrad:Destroy() end
             
             if tName == name then
-                applyLuxuryGradient(tData.Btn)
                 tData.Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                local g = applyLuxuryGradient(tData.Btn)
+                g.Name = "TabGrad"
             else
                 tData.Btn.TextColor3 = Color3.fromRGB(130, 130, 130)
             end
@@ -200,7 +204,7 @@ end
 local CheatTab = createTab("CHEAT")
 local SettingsTab = createTab("SETTINGS")
 
--- Логика плавного сворачивания в аккуратную полоску
+-- Сворачивание
 MinimizeBtn.MouseButton1Click:Connect(function()
     IsMinimized = not IsMinimized
     if IsMinimized then
@@ -220,15 +224,15 @@ end)
 --                                      ВКЛАДКА НАСТРОЕК                                    --
 --==========================================================================================--
 local SettingsLayout = Instance.new("UIListLayout")
-SettingsLayout.Padding = UDim.new(0, 10)
+SettingsLayout.Padding = UDim.new(0, 8)
 SettingsLayout.Parent = SettingsTab
 
 local function createSettingInfo(text)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -10, 0, 30)
+    lbl.Size = UDim2.new(1, -10, 0, 25)
     lbl.Text = " > " .. text
     lbl.TextColor3 = Color3.fromRGB(160, 160, 160)
-    lbl.TextSize = 13
+    lbl.TextSize = 12
     lbl.Font = Enum.Font.Gotham
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.BackgroundTransparency = 1
@@ -242,10 +246,9 @@ createSettingInfo("RENDER MODE: RUNSERVICE OPTIMIZED")
 --==========================================================================================--
 --                                   ВКЛАДКА CHEAT (UI ПАНЕЛИ)                              --
 --==========================================================================================--
--- Список игроков (Прокрутка)
+-- Список игроков
 local PlayerListFrame = Instance.new("ScrollingFrame")
-PlayerListFrame.Size = UDim2.new(0, 170, 1, -5)
-PlayerListFrame.Position = UDim2.new(0, 0, 0, 0)
+PlayerListFrame.Size = UDim2.new(0, 165, 1, 0)
 PlayerListFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
 PlayerListFrame.BorderSizePixel = 0
 PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -257,10 +260,10 @@ local ListLayout = Instance.new("UIListLayout")
 ListLayout.Padding = UDim.new(0, 4)
 ListLayout.Parent = PlayerListFrame
 
--- Правая часть управления
+-- Панель управления справа
 local ControlPanel = Instance.new("Frame")
-ControlPanel.Size = UDim2.new(1, -180, 1, -5)
-ControlPanel.Position = UDim2.new(0, 180, 0, 0)
+ControlPanel.Size = UDim2.new(1, -175, 1, 0)
+ControlPanel.Position = UDim2.new(0, 175, 0, 0)
 ControlPanel.BackgroundTransparency = 1
 ControlPanel.Parent = CheatTab
 
@@ -268,21 +271,21 @@ local ControlLayout = Instance.new("UIListLayout")
 ControlLayout.Padding = UDim.new(0, 6)
 ControlLayout.Parent = ControlPanel
 
--- Крупные Luxury кнопки
+-- Кнопки управления читом
 local function createHackButton(text, hasGradient)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
     btn.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
     btn.Text = text
-    btn.TextSize = 12
+    btn.TextSize = 11
     btn.Font = Enum.Font.GothamBold
     btn.BorderSizePixel = 0
     btn.Parent = ControlPanel
     createCorner(btn, 4)
     
     if hasGradient then
-        applyLuxuryGradient(btn)
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        applyLuxuryGradient(btn)
     else
         btn.TextColor3 = Color3.fromRGB(180, 180, 180)
     end
@@ -333,11 +336,11 @@ local function updatePlayerList()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local pBtn = Instance.new("TextButton")
-            pBtn.Size = UDim2.new(1, 0, 0, 32) -- Кнопки игроков стали выше и удобнее
+            pBtn.Size = UDim2.new(1, 0, 0, 32)
             pBtn.BackgroundColor3 = TargetPlayers[player] and Color3.fromRGB(25, 12, 5) or Color3.fromRGB(14, 14, 14)
             pBtn.Text = "  " .. player.DisplayName
             pBtn.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(200, 200, 200)
-            pBtn.TextSize = 13 -- Текст увеличен
+            pBtn.TextSize = 12
             pBtn.Font = Enum.Font.GothamBold
             pBtn.TextXAlignment = Enum.TextXAlignment.Left
             pBtn.BorderSizePixel = 0
@@ -350,7 +353,7 @@ local function updatePlayerList()
             chk.Text = TargetPlayers[player] and "✓" or "○"
             chk.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(70, 70, 70)
             chk.Font = Enum.Font.GothamBold
-            chk.TextSize = 14
+            chk.TextSize = 13
             chk.BackgroundTransparency = 1
             chk.Parent = pBtn
             
