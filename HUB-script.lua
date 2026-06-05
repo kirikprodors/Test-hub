@@ -1,6 +1,6 @@
 --==========================================================================================--
---                                  LUXURY HACKER HUB v3                                    --
---                 Optimized for Delta Executor | UI Style: Dark & Gold/Orange             --
+--                                  LUXURY HACKER HUB v4                                    --
+--                 Optimized for Delta Executor | UI Style: Dynamic Themes                 --
 --==========================================================================================--
 
 local Players = game:GetService("Players")
@@ -14,6 +14,11 @@ local TargetPlayers = {}
 local SavedTpPosition = nil
 local IsMinimized = false
 local ActiveTab = "CHEAT"
+local CurrentTheme = "Luxury"
+local CurrentScale = 1
+
+local BASE_WIDTH = 440
+local BASE_HEIGHT = 260
 
 -- Очистка старых UI перед перезапуском
 local oldUi = game:GetService("CoreGui"):FindFirstChild("HackerHub") or LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("HackerHub")
@@ -26,6 +31,11 @@ ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
+-- Списки элементов для динамического обновления темы
+local GradientsToUpdate = {}
+local BackgroundsToUpdate = {}
+local TextToUpdate = {}
+
 --==========================================================================================--
 --                                   ФУНКЦИИ СТИЛИЗАЦИИ                                      --
 --==========================================================================================--
@@ -36,15 +46,57 @@ local function createCorner(parent, radius)
     return corner
 end
 
--- Фирменный Luxury-градиент
-local function applyLuxuryGradient(parent)
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 0)), -- Яркий оранжевый
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(212, 175, 55)) -- Золотой
-    })
+-- Динамический градиент (Luxury или Hacker)
+local function applyThemeGradient(parent)
+    local oldGrad = parent:FindFirstChild("ThemeGradient")
+    if oldGrad then oldGrad:Destroy() end
+    
+    local gradient = Instance.new("UIGradiient") -- Защита от перезаписи имени класса в движке
+    gradient = Instance.new("UIGradient")
+    gradient.Name = "ThemeGradient"
+    
+    if CurrentTheme == "Luxury" then
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 140, 0)), -- Оранжевый
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(212, 175, 55))  -- Золотой
+        })
+    else
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 0)),   -- Токсично-зеленый
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 100, 0))    -- Темно-зеленый
+        })
+    end
     gradient.Parent = parent
+    GradientsToUpdate[parent] = true
     return gradient
+end
+
+-- Обновление всей темы на лету
+local function updateThemeUI()
+    local mainBg = (CurrentTheme == "Luxury") and Color3.fromRGB(5, 5, 5) or Color3.fromRGB(0, 0, 0)
+    local sideBg = (CurrentTheme == "Luxury") and Color3.fromRGB(10, 10, 10) or Color3.fromRGB(5, 5, 5)
+    local listBg = (CurrentTheme == "Luxury") and Color3.fromRGB(8, 8, 8) or Color3.fromRGB(3, 3, 3)
+    
+    for frame, t in pairs(BackgroundsToUpdate) do
+        if frame and frame.Parent then
+            if frame.Name == "MainFrame" then frame.BackgroundColor3 = mainBg
+            elseif frame.Name == "Sidebar" then frame.BackgroundColor3 = sideBg
+            elseif frame.Name == "PlayerListFrame" then frame.BackgroundColor3 = listBg
+            end
+        end
+    end
+    
+    for obj, _ in pairs(GradientsToUpdate) do
+        if obj and obj.Parent then applyThemeGradient(obj) end
+    end
+    
+    for txtObj, typeStr do
+        if txtObj and txtObj.Parent then
+            if typeStr == "Status" then
+                txtObj.TextColor3 = (CurrentTheme == "Luxury") and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(0, 255, 0)
+            end
+        end
+    end
 end
 
 local function makeDraggable(dragFrame, parentFrame)
@@ -75,25 +127,23 @@ end
 --==========================================================================================--
 --                                      ГЛАВНЫЕ ФРЕЙМЫ                                      --
 --==========================================================================================--
--- Компактное и удобное окно для телефона (440x260)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 440, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -220, 0.5, -130)
-MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5) -- Твой ультра-тёмный фон #050505
+MainFrame.Size = UDim2.new(0, BASE_WIDTH, 0, BASE_HEIGHT)
+MainFrame.Position = UDim2.new(0.5, -BASE_WIDTH/2, 0.5, -BASE_HEIGHT/2)
+MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 createCorner(MainFrame, 8)
+BackgroundsToUpdate[MainFrame] = true
 
--- Верхняя светящаяся линия
 local TopLine = Instance.new("Frame")
 TopLine.Size = UDim2.new(1, 0, 0, 4)
 TopLine.BorderSizePixel = 0
 TopLine.Parent = MainFrame
-applyLuxuryGradient(TopLine)
+applyThemeGradient(TopLine)
 createCorner(TopLine, 4)
 
--- Топбар
 local TopBar = Instance.new("Frame")
 TopBar.Size = UDim2.new(1, 0, 0, 35)
 TopBar.Position = UDim2.new(0, 0, 0, 4)
@@ -107,13 +157,12 @@ Title.Position = UDim2.new(0, 15, 0, 0)
 Title.Text = "SYSTEM OVERRIDE // LUX HUB"
 Title.TextSize = 15 
 Title.Font = Enum.Font.GothamBold 
-Title.TextColor3 = Color3.fromRGB(255, 255, 255) -- Белый, чтобы лег градиент
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.BackgroundTransparency = 1
 Title.Parent = TopBar
-applyLuxuryGradient(Title)
+applyThemeGradient(Title)
 
--- Кнопки управления
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 35, 0, 30)
 CloseBtn.Position = UDim2.new(1, -40, 0, 2)
@@ -135,19 +184,19 @@ MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.BackgroundTransparency = 1
 MinimizeBtn.Parent = TopBar
 
--- Левый сайдбар для вкладок
 local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
 Sidebar.Size = UDim2.new(0, 110, 1, -39)
 Sidebar.Position = UDim2.new(0, 0, 0, 39)
 Sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
+BackgroundsToUpdate[Sidebar] = true
 
 local SidebarUIList = Instance.new("UIListLayout")
 SidebarUIList.Padding = UDim.new(0, 4)
 SidebarUIList.Parent = Sidebar
 
--- Контейнер содержимого
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Size = UDim2.new(1, -120, 1, -44)
 ContentFrame.Position = UDim2.new(0, 120, 0, 41)
@@ -174,8 +223,7 @@ local function createTab(name)
     
     if name == "CHEAT" then
         TabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        local g = applyLuxuryGradient(TabBtn)
-        g.Name = "TabGrad"
+        applyThemeGradient(TabBtn)
     else
         TabBtn.TextColor3 = Color3.fromRGB(130, 130, 130)
     end
@@ -185,13 +233,13 @@ local function createTab(name)
     TabBtn.MouseButton1Click:Connect(function()
         for tName, tData in pairs(Tabs) do
             tData.Content.Visible = (tName == name)
-            local oldGrad = tData.Btn:FindFirstChild("TabGrad")
+            GradientsToUpdate[tData.Btn] = nil
+            local oldGrad = tData.Btn:FindFirstChild("ThemeGradient")
             if oldGrad then oldGrad:Destroy() end
             
             if tName == name then
                 tData.Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                local g = applyLuxuryGradient(tData.Btn)
-                g.Name = "TabGrad"
+                applyThemeGradient(tData.Btn)
             else
                 tData.Btn.TextColor3 = Color3.fromRGB(130, 130, 130)
             end
@@ -208,12 +256,12 @@ local SettingsTab = createTab("SETTINGS")
 MinimizeBtn.MouseButton1Click:Connect(function()
     IsMinimized = not IsMinimized
     if IsMinimized then
-        MainFrame:TweenSize(UDim2.new(0, 440, 0, 39), "Out", "Quad", 0.2, true)
+        MainFrame:TweenSize(UDim2.new(0, BASE_WIDTH / CurrentScale, 0, 39), "Out", "Quad", 0.2, true)
         Sidebar.Visible = false
         ContentFrame.Visible = false
         MinimizeBtn.Text = "🗖"
     else
-        MainFrame:TweenSize(UDim2.new(0, 440, 0, 260), "Out", "Quad", 0.2, true)
+        MainFrame:TweenSize(UDim2.new(0, BASE_WIDTH / CurrentScale, 0, BASE_HEIGHT / CurrentScale), "Out", "Quad", 0.2, true)
         Sidebar.Visible = true
         ContentFrame.Visible = true
         MinimizeBtn.Text = "—"
@@ -227,27 +275,98 @@ local SettingsLayout = Instance.new("UIListLayout")
 SettingsLayout.Padding = UDim.new(0, 8)
 SettingsLayout.Parent = SettingsTab
 
-local function createSettingInfo(text)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -10, 0, 25)
-    lbl.Text = " > " .. text
-    lbl.TextColor3 = Color3.fromRGB(160, 160, 160)
-    lbl.TextSize = 12
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.BackgroundTransparency = 1
-    lbl.Parent = SettingsTab
-end
+-- Поле изменения размера хаба (Твоя формула: Новая Сила = База / Коэффициент)
+local ScaleRow = Instance.new("Frame")
+ScaleRow.Size = UDim2.new(1, 0, 0, 35)
+ScaleRow.BackgroundTransparency = 1
+ScaleRow.Parent = SettingsTab
 
-createSettingInfo("THEME: LUXURY GRAPHITE")
-createSettingInfo("HWID STATUS: STABLE ACTIVE")
-createSettingInfo("RENDER MODE: RUNSERVICE OPTIMIZED")
+local ScaleLabel = Instance.new("TextLabel")
+ScaleLabel.Size = UDim2.new(0, 130, 1, 0)
+ScaleLabel.Text = "HUB SCALE DIVIDER:"
+ScaleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ScaleLabel.TextSize = 11
+ScaleLabel.Font = Enum.Font.GothamBold
+ScaleLabel.BackgroundTransparency = 1
+ScaleLabel.TextXAlignment = Enum.TextXAlignment.Left
+ScaleLabel.Parent = ScaleRow
+
+local ScaleInput = Instance.new("TextBox")
+ScaleInput.Size = UDim2.new(1, -140, 0, 28)
+ScaleInput.Position = UDim2.new(0, 130, 0, 3)
+ScaleInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+ScaleInput.Text = "1"
+ScaleInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+ScaleInput.TextSize = 12
+ScaleInput.Font = Enum.Font.GothamBold
+ScaleInput.Parent = ScaleRow
+createCorner(ScaleInput, 4)
+
+ScaleInput.FocusLost:Connect(function(enterPressed)
+    local val = tonumber(ScaleInput.Text)
+    if val and val > 0 then
+        CurrentScale = val
+        local targetW = BASE_WIDTH / CurrentScale
+        local targetH = BASE_HEIGHT / CurrentScale
+        MainFrame.Size = UDim2.new(0, targetW, 0, targetH)
+        MainFrame.Position = UDim2.new(0.5, -targetW/2, 0.5, -targetH/2)
+    else
+        ScaleInput.Text = tostring(CurrentScale)
+    end
+end)
+
+-- Переключатели тем
+local ThemeLabel = Instance.new("TextLabel")
+ThemeLabel.Size = UDim2.new(1, 0, 0, 20)
+ThemeLabel.Text = "SELECT STYLE THEME:"
+ThemeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+ThemeLabel.TextSize = 11
+ThemeLabel.Font = Enum.Font.GothamBold
+ThemeLabel.BackgroundTransparency = 1
+ThemeLabel.TextXAlignment = Enum.TextXAlignment.Left
+ThemeLabel.Parent = SettingsTab
+
+local ThemeButtonsRow = Instance.new("Frame")
+ThemeButtonsRow.Size = UDim2.new(1, 0, 0, 35)
+ThemeButtonsRow.BackgroundTransparency = 1
+ThemeButtonsRow.Parent = SettingsTab
+
+local LuxThemeBtn = Instance.new("TextButton")
+LuxThemeBtn.Size = UDim2.new(0.5, -4, 1, 0)
+LuxThemeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+LuxThemeBtn.Text = "LUXURY STYLING"
+LuxThemeBtn.TextColor3 = Color3.fromRGB(255, 140, 0)
+LuxThemeBtn.TextSize = 11
+LuxThemeBtn.Font = Enum.Font.GothamBold
+LuxThemeBtn.Parent = ThemeButtonsRow
+createCorner(LuxThemeBtn, 4)
+
+local HackThemeBtn = Instance.new("TextButton")
+HackThemeBtn.Size = UDim2.new(0.5, -4, 1, 0)
+HackThemeBtn.Position = UDim2.new(0.5, 4, 0, 0)
+HackThemeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+HackThemeBtn.Text = "HACKER GREEN"
+HackThemeBtn.TextColor3 = Color3.fromRGB(0, 255, 0)
+HackThemeBtn.TextSize = 11
+HackThemeBtn.Font = Enum.Font.GothamBold
+HackThemeBtn.Parent = ThemeButtonsRow
+createCorner(HackThemeBtn, 4)
+
+LuxThemeBtn.MouseButton1Click:Connect(function()
+    CurrentTheme = "Luxury"
+    updateThemeUI()
+end)
+
+HackThemeBtn.MouseButton1Click:Connect(function()
+    CurrentTheme = "Hacker"
+    updateThemeUI()
+end)
 
 --==========================================================================================--
 --                                   ВКЛАДКА CHEAT (UI ПАНЕЛИ)                              --
 --==========================================================================================--
--- Список игроков
 local PlayerListFrame = Instance.new("ScrollingFrame")
+PlayerListFrame.Name = "PlayerListFrame"
 PlayerListFrame.Size = UDim2.new(0, 165, 1, 0)
 PlayerListFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
 PlayerListFrame.BorderSizePixel = 0
@@ -255,12 +374,12 @@ PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 PlayerListFrame.ScrollBarThickness = 3
 PlayerListFrame.Parent = CheatTab
 createCorner(PlayerListFrame, 4)
+BackgroundsToUpdate[PlayerListFrame] = true
 
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.Padding = UDim.new(0, 4)
 ListLayout.Parent = PlayerListFrame
 
--- Панель управления справа
 local ControlPanel = Instance.new("Frame")
 ControlPanel.Size = UDim2.new(1, -175, 1, 0)
 ControlPanel.Position = UDim2.new(0, 175, 0, 0)
@@ -271,7 +390,6 @@ local ControlLayout = Instance.new("UIListLayout")
 ControlLayout.Padding = UDim.new(0, 6)
 ControlLayout.Parent = ControlPanel
 
--- Кнопки управления читом
 local function createHackButton(text, hasGradient)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 35)
@@ -285,7 +403,7 @@ local function createHackButton(text, hasGradient)
     
     if hasGradient then
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        applyLuxuryGradient(btn)
+        applyThemeGradient(btn)
     else
         btn.TextColor3 = Color3.fromRGB(180, 180, 180)
     end
@@ -305,6 +423,7 @@ PosStatus.TextSize = 11
 PosStatus.Font = Enum.Font.Gotham
 PosStatus.BackgroundTransparency = 1
 PosStatus.Parent = ControlPanel
+TextToUpdate[PosStatus] = "Status"
 
 --==========================================================================================--
 --                                         ЛОГИКА                                           --
@@ -359,10 +478,17 @@ local function updatePlayerList()
             
             pBtn.MouseButton1Click:Connect(function()
                 TargetPlayers[player] = not TargetPlayers[player]
-                pBtn.BackgroundColor3 = TargetPlayers[player] and Color3.fromRGB(25, 12, 5) or Color3.fromRGB(14, 14, 14)
-                pBtn.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(200, 200, 200)
+                
+                if CurrentTheme == "Luxury" then
+                    pBtn.BackgroundColor3 = TargetPlayers[player] and Color3.fromRGB(25, 12, 5) or Color3.fromRGB(14, 14, 14)
+                    pBtn.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(200, 200, 200)
+                    chk.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(70, 70, 70)
+                else
+                    pBtn.BackgroundColor3 = TargetPlayers[player] and Color3.fromRGB(5, 30, 5) or Color3.fromRGB(14, 14, 14)
+                    pBtn.TextColor3 = TargetPlayers[player] and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(200, 200, 200)
+                    chk.TextColor3 = TargetPlayers[player] and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(70, 70, 70)
+                end
                 chk.Text = TargetPlayers[player] and "✓" or "○"
-                chk.TextColor3 = TargetPlayers[player] and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(70, 70, 70)
             end)
         end
     end
@@ -389,7 +515,7 @@ SetTpBtn.MouseButton1Click:Connect(function()
     if hrp then
         SavedTpPosition = hrp.Position
         PosStatus.Text = "TP: Custom Set!"
-        PosStatus.TextColor3 = Color3.fromRGB(255, 140, 0)
+        PosStatus.TextColor3 = (CurrentTheme == "Luxury") and Color3.fromRGB(255, 140, 0) or Color3.fromRGB(0, 255, 0)
     end
 end)
 
